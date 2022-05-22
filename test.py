@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import json
 import datetime
 import sys
 import requests
@@ -15,8 +16,8 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QGridLayout,
     QDialogButtonBox,
-    QTreeWidget,
-    QTreeWidgetItem
+    QTableWidget,
+    QTableWidgetItem
 )
 from PySide6.QtGui import QIcon, QAction
 
@@ -58,6 +59,10 @@ def search_aur(user_input):
                 sep="\n",
                 end="\n\n",
             )
+
+            d = json.loads(o)
+            print(d['glossary']['title'])
+
         return True, o
     else:
         return False, o
