@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import datetime
+from datetime import datetime
 import sys
 import requests
 from PySide6.QtWidgets import (
@@ -17,8 +17,10 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QTreeWidget,
     QTreeWidgetItem,
+    QTableWidget,
+    QTableWidgetItem,
 )
-from PySide6.QtGui import QIcon, QAction
+from PySide6.QtGui import QIcon, QAction, QColor
 
 
 def main():
@@ -27,8 +29,10 @@ def main():
     sys.exit(app.exec())
 
 
-def search_aur(user_input):
+def search_aur(user_input, win):
     name = user_input.strip()
+
+    win.status_bar.showMessage(f"Searching...")
 
     response = requests.get(
         "https://aur.archlinux.org/rpc/?v=5&type=search&arg=" + name
@@ -36,11 +40,13 @@ def search_aur(user_input):
     o = response.json()
 
     if o["resultcount"] != 0:
+        win.status_bar.showMessage(f"Found total of {o['resultcount']} packages")
         result = json_to_dict(o)
-        return (True, result)
+        return result
 
     else:
-        return (False, None)
+        win.status_bar.showMessage("Nothing Found!")
+        return None
 
 
 def json_to_dict(json_obj):
@@ -81,6 +87,7 @@ class main_window(QMainWindow):
         self.setWindowTitle(f"AUR Search Tool")
 
         self.menu_items()
+        self.table = None
 
         self.show()
 
@@ -157,6 +164,9 @@ class main_window(QMainWindow):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
+            # close all other top windows
+            for window in QApplication.topLevelWidgets():
+                window.close()
             event.accept()
 
         else:
@@ -192,15 +202,69 @@ class main_window(QMainWindow):
         self.button.setEnabled(False)
         self.input_line.setEnabled(False)
 
-        package_found, result_dict = search_aur(self.input_line.text())
-        if package_found == True:
-            self.status_bar.showMessage(f"Found total of {len(result_dict)} packages")
+        result_dict = search_aur(self.input_line.text(), self)
+        if not result_dict is None:
 
-        else:
-            self.status_bar.showMessage("Nothing Found!")
+            # avoid creating duplicate window
+            if self.table is None:
+                self.table = table_widget()
+
+            self.table.update_table(result_dict, self.input_line.text())
+            self.table.show()
 
         self.button.setEnabled(True)
         self.input_line.setEnabled(True)
+
+
+# table object
+class table_widget(QTableWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.resize(1200, 700)
+        self.setColumnCount(6)
+        self.setHorizontalHeaderLabels(
+            [
+                "Package Name",
+                "Version",
+                "Last Update Time",
+                "Maintainer",
+                "Description",
+                "Upstream URL",
+            ]
+        )
+
+    def update_table(self, bundles, search):
+        self.setWindowTitle(f"Search Results of: {search}")
+        self.setRowCount(len(bundles))
+
+        for i in range(len(bundles)):
+            name = QTableWidgetItem(bundles[i]["Name"])
+            version = QTableWidgetItem(bundles[i]["Version"])
+            converted_time = datetime.fromtimestamp(
+                bundles[i]["LastModified"]
+            )  # convert unix seconds to time and date
+            update = QTableWidgetItem(
+                converted_time.strftime("%x %X")
+            )  # print date and time based on system locale
+            maintainer = QTableWidgetItem(bundles[i]["Maintainer"])
+            description = QTableWidgetItem(bundles[i]["Description"])
+            link = QTableWidgetItem(bundles[i]["URL"])
+
+            # if package is marked out of date
+            if not bundles[i]["OutOfDate"] is None:
+                version.setBackground(QColor("red"))
+
+            # if package is orphan
+            if bundles[i]["Maintainer"] is None:
+                maintainer.setBackground(QColor("red"))
+
+            self.setItem(i, 0, name)
+            self.setItem(i, 1, version)
+            self.setItem(i, 2, update)
+            self.setItem(i, 3, maintainer)
+            self.setItem(i, 4, description)
+            self.setItem(i, 5, link)
 
 
 if __name__ == "__main__":
