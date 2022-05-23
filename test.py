@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import json
 import datetime
 import sys
 import requests
@@ -16,8 +15,8 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QGridLayout,
     QDialogButtonBox,
-    QTableWidget,
-    QTableWidgetItem
+    QTreeWidget,
+    QTreeWidgetItem,
 )
 from PySide6.QtGui import QIcon, QAction
 
@@ -29,43 +28,40 @@ def main():
 
 
 def search_aur(user_input):
-    name = user_input
+    name = user_input.strip()
+
     response = requests.get(
         "https://aur.archlinux.org/rpc/?v=5&type=search&arg=" + name
     )  # https://wiki.archlinux.org/title/Aurweb_RPC_interface
-
     o = response.json()
+
     if o["resultcount"] != 0:
-        for result in o["results"]:
-            lastmodified = datetime.datetime.fromtimestamp(
-                result["LastModified"]
-            )  # convert unix seconds to time and date
+        result = json_to_dict(o)
+        return (True, result)
 
-            print(
-                "软件包：",
-                result["Name"],
-                "维护者：",
-                result["Maintainer"],
-                "简介：",
-                result["Description"],
-                "上次更新：",
-                lastmodified.strftime(
-                    "%x %X"
-                ),  # print date and time based on system locale
-                "版本：",
-                result["Version"],
-                "上流链接：",
-                result["URL"],
-                sep="\n",
-                end="\n\n",
-            )
-
-            d = json.loads(o)
-            print(d['glossary']['title'])
-
-        return True, o
     else:
-        return False, o
+        return (False, None)
+
+
+def json_to_dict(json_obj):
+    dict = []
+
+    for result in json_obj["results"]:
+        items = {}
+        items["Description"] = result["Description"]
+        items["FirstSubmitted"] = result["FirstSubmitted"]
+        items["LastModified"] = result["LastModified"]
+        items["Maintainer"] = result["Maintainer"]
+        items["Name"] = result["Name"]
+        items["NumVotes"] = result["NumVotes"]
+        items["OutOfDate"] = result["OutOfDate"]
+        items["Popularity"] = result["Popularity"]
+        items["URL"] = result["URL"]
+        items["Version"] = result["Version"]
+        dict.append(items)
+
+    print(dict)
+    return dict
 
 
 class main_window(QMainWindow):
@@ -195,16 +191,17 @@ class main_window(QMainWindow):
     def get_input(self):
         self.button.setEnabled(False)
         self.input_line.setEnabled(False)
-        
-        package_found, result_json = search_aur(self.input_line.text().strip())
+
+        package_found, result_dict = search_aur(self.input_line.text())
         if package_found == True:
-            self.status_bar.showMessage(f"Found total of {result_json['resultcount']} packages")
-        
+            self.status_bar.showMessage(f"Found total of {len(result_dict)} packages")
+
         else:
             self.status_bar.showMessage("Nothing Found!")
-        
+
         self.button.setEnabled(True)
         self.input_line.setEnabled(True)
+
 
 if __name__ == "__main__":
     main()
