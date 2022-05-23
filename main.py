@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
 )
-from PySide6.QtGui import QIcon, QAction, QColor
+from PySide6.QtGui import QIcon, QAction, QColor, QIcon
 
 
 def main():
@@ -82,6 +82,7 @@ class main_window(QMainWindow):
         self.status_bar.showMessage("Loading")
         self.ui_elements(main_ui)
 
+        self.setWindowIcon(QIcon("icon.png"))
         self.resize(400, 180)
         self.centre()
         self.setWindowTitle(f"AUR Search Tool")
